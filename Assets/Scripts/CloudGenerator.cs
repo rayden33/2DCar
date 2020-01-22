@@ -20,7 +20,7 @@ public class CloudGenerator : MonoBehaviour
     private Transform _lastCloud;
     private CloudScript _cloud;
 
-    private Transform GetCloudInPool()
+    private Transform GetCloudFromPool()
     {
         foreach (var cloud in _cloudPoolList)
             if (!cloud.gameObject.activeInHierarchy) return cloud;
@@ -32,7 +32,7 @@ public class CloudGenerator : MonoBehaviour
     {
         float _cloudHeight = Random.Range(_minHeight, _maxHeight);
         float _cloudSpeed = Random.Range(_minSpeed, _maxSpeed);
-        Transform _tmpCloud = GetCloudInPool();
+        Transform _tmpCloud = GetCloudFromPool();
         _tmpCloud.position = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, 0, 0));
         _tmpCloud.position = new Vector3(_tmpCloud.position.x + _cloudHideCreateOffset, _cloudHeight,0);
         _tmpCloud.gameObject.SetActive(true);

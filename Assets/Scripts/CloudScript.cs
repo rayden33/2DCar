@@ -23,7 +23,7 @@ public class CloudScript : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (transform.position.x >= Camera.main.ScreenToWorldPoint(new Vector3(0,0,0)).x - _hideOffset)
+        if (transform.position.x >= Camera.main.ScreenToWorldPoint(Vector3.zero).x - _hideOffset)
         {
             transform.Translate(new Vector3(-1,0,0) * _speed * Time.deltaTime);
         }

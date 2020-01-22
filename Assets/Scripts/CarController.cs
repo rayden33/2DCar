@@ -42,13 +42,13 @@ public class CarController : MonoBehaviour
     {
         foreach (var item in _wheelScript)
         {
-            if(!item.onGround)
+            if(item.onGround)
             {
-                _myCar._onGround = false;
+                _myCar._onGround = true;
                 return;
             }
         }
-        _myCar._onGround = true;
+        _myCar._onGround = false;
     }
 
     void DragDrop()
@@ -85,6 +85,10 @@ public class CarController : MonoBehaviour
                 PSlipChangeRotation();
                 if (!particleSlip.isPlaying) particleSlip.Play();
             }
+            else
+            {
+                if (particleSlip.isPlaying) particleSlip.Stop();
+            }
         }
         else
         {
@@ -103,9 +107,9 @@ public class CarController : MonoBehaviour
             var psShape = psTmp.shape;
 
             if (_rgbCar.velocity.x < 0)
-                psShape.rotation = new Vector3(180, -90, 0);
+                psShape.rotation = new Vector2(180, -90);
             else
-                psShape.rotation = new Vector3(0, -90, 0);
+                psShape.rotation = new Vector2(0, -90);
         }
     }
 
@@ -142,8 +146,6 @@ public class CarController : MonoBehaviour
 
         if (_angleCar < angleMinSensitive && _angleCar > -angleMinSensitive)
             _angleCar = 0;
-
-        CalibrationCarRotation();
         
         if (Input.GetButton("Fire1"))
         {
@@ -185,7 +187,11 @@ public class CarController : MonoBehaviour
             }
 
         }
-        if (_myCar._state != CarState.drag_drop) ParticleSlip();
+        if (_myCar._state != CarState.drag_drop) 
+            ParticleSlip();
+        else
+            CalibrationCarRotation();
+            
         
         //Debug.Log(gameObject.GetComponent<Rigidbody2D>().velocity.magnitude);
         _wheelJoints[0].motor = _frontWheel;
