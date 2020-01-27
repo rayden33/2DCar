@@ -1,11 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Car
 {
     public CarState _state;
-    public bool _onGround = false;
 }
 public enum CarState
 {
@@ -16,150 +16,151 @@ public enum CarState
 }
 public class CarController : MonoBehaviour
 {
+    public float MaxSpeed
+    {
+        get { return _maxSpeed; }
+    }
 
+    [SerializeField] private float _maxSpeed = 2000;
+    [SerializeField] private float _finishCarSpeed = 1000f;
+    [SerializeField] private float _carAngleMinValue = 1f;
+    [SerializeField] private float _acceleration = 100f;
+    [SerializeField] private float _deacceleration = 100f;
+    [SerializeField] private float _gravity = 9.8f;
+    [SerializeField] private GameObject _fireWorkSystem;
+    [SerializeField] private GameObject _uiControllerGameObject;
     
-    public GameObject[] gameObjectWheels;
-    public ParticleSystem particleSlip;
-    public float maxSpeed = 1000f;
-    public float angleMinSensitive = 1f;
-
-    private float _acceleration = 100f;
-    private float _deacceleration = 100f;
-    private float _gravity = 9.8f;
+    private bool _calibratingCarRotate = false;
+    private bool _isFinish = false;
     private float _angleCar = 0;
     private float _speed = 0;
+    private float _neutralSpeedProportion = 0.2f;
     private float _mousePosPercentageX;
+    private float _carMass;
     private WheelJoint2D[] _wheelJoints;
-    private JointMotor2D _frontWheel;
-    private JointMotor2D _midWheel;
-    private JointMotor2D _backWheel;
-    private Rigidbody2D _rgbCar;
-    private TargetJoint2D _tjDragDrop;
-    private WheelScript[] _wheelScript;
+    private JointMotor2D _wheelMotor;
+    private Rigidbody2D _rigidbodyCar;
+    private TargetJoint2D _targetJointDragDrop;
+    private WheelScript[] _wheelScripts;
+    private UIController _uiController;
     private Car _myCar;
-
-    public void ChangeOnGroundState()
-    {
-        foreach (var item in _wheelScript)
-        {
-            if(item.onGround)
-            {
-                _myCar._onGround = true;
-                return;
-            }
-        }
-        _myCar._onGround = false;
-    }
 
     void DragDrop()
     {
-        _tjDragDrop.target = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        _targetJointDragDrop.target = Camera.main.ScreenToWorldPoint(Input.mousePosition);
     }
     void Moving()
     {
-        if (_speed < 0.2f * maxSpeed)
+        if (_speed <= _neutralSpeedProportion * MaxSpeed)
             _myCar._state = CarState.neutral;
         else
             _myCar._state = CarState.gas;
 
-        if (_myCar._state == CarState.gas && _mousePosPercentageX * _frontWheel.motorSpeed > 0)
+        if (_myCar._state == CarState.gas && _mousePosPercentageX * _wheelMotor.motorSpeed > 0)
             _myCar._state = CarState.braking;
         else
             _myCar._state = CarState.gas;
 
-        _frontWheel.motorSpeed = Mathf.Clamp(_frontWheel.motorSpeed - (_acceleration - _gravity * (_angleCar / 180) * 500), -maxSpeed * _mousePosPercentageX, -maxSpeed * _mousePosPercentageX) ;
+        _wheelMotor.motorSpeed = Mathf.Clamp(_wheelMotor.motorSpeed - (_acceleration - _gravity * _carMass * (_angleCar / 180)), -MaxSpeed * _mousePosPercentageX, -MaxSpeed * _mousePosPercentageX) ;
 
     }
     void Braking()
     {
-        _frontWheel.motorSpeed = 0;
+        _wheelMotor.motorSpeed = 0;
     }
 
     void ParticleSlip()
     {
         // Slip particle effect
-        if(Mathf.Abs(_speed - Mathf.Abs(_frontWheel.motorSpeed)) > 0.3f * maxSpeed)
+        foreach (var item in _wheelScripts)
         {
-            if (_myCar._onGround)
-            {
-                PSlipChangeRotation();
-                if (!particleSlip.isPlaying) particleSlip.Play();
-            }
-            else
-            {
-                if (particleSlip.isPlaying) particleSlip.Stop();
-            }
-        }
-        else
-        {
-            if (particleSlip.isPlaying) particleSlip.Stop();
-        }
-    }
-
-    void PSlipChangeRotation()
-    {
-        Transform goTmp;
-        ParticleSystem psTmp;
-        for (int i = 0; i < particleSlip.transform.childCount; i++)
-        {
-            goTmp = particleSlip.transform.Find(i.ToString());
-            psTmp = goTmp.gameObject.GetComponent<ParticleSystem>();
-            var psShape = psTmp.shape;
-
-            if (_rgbCar.velocity.x < 0)
-                psShape.rotation = new Vector2(180, -90);
-            else
-                psShape.rotation = new Vector2(0, -90);
+            item.Slipping(_speed, _wheelMotor.motorSpeed, MaxSpeed, _myCar._state == CarState.drag_drop);
         }
     }
 
     void CalibrationCarRotation()
     {
-        if (Mathf.Abs(_angleCar) > 30f)
+        //Debug.Log(Mathf.Pow(_angleCar / 4f, 2f) * Time.deltaTime);
+        if (_myCar._state == CarState.drag_drop)
         {
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0,0,0), Mathf.Abs(_angleCar) * 2f * Time.deltaTime);
+            
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0,0,0), Mathf.Pow(_angleCar / 4f, 2f) * Time.deltaTime);     /// function y = x^2
         }
+        else
+        {
+            if (Mathf.Abs(_angleCar) > 45f)
+                _calibratingCarRotate = true;
+            if (Mathf.Abs(_angleCar) < 30f)
+                _calibratingCarRotate = false;
+            if (_calibratingCarRotate)
+            {
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(0,0,0), Mathf.Pow(_angleCar / 2f, 2f) * Time.deltaTime);
+            }
+        }
+        
     }
+
+    public void TakeControl()
+    {
+        _isFinish = true;
+        _wheelMotor.motorSpeed = -_finishCarSpeed;
+        _targetJointDragDrop.enabled = false;
+    }
+    public void FinishScene()
+    {
+        _fireWorkSystem.SetActive(true);
+        _wheelMotor.motorSpeed = 0;
+        _uiController.EndWay();
+    } 
     
     void Start()
     {
         _myCar = new Car();
         _wheelJoints = gameObject.GetComponents<WheelJoint2D>();
-        _rgbCar = gameObject.GetComponent<Rigidbody2D>();
-        _tjDragDrop = gameObject.GetComponent<TargetJoint2D>();
-        _wheelScript = gameObject.GetComponentsInChildren<WheelScript>();
-        _frontWheel = _wheelJoints[0].motor;
-        _midWheel = _wheelJoints[1].motor;
-        _backWheel = _wheelJoints[2].motor;
+        _rigidbodyCar = gameObject.GetComponent<Rigidbody2D>();
+        _targetJointDragDrop = gameObject.GetComponent<TargetJoint2D>();
+        _wheelScripts = gameObject.GetComponentsInChildren<WheelScript>();
+        _uiController = _uiControllerGameObject.GetComponent<UIController>();
+        _wheelMotor = _wheelJoints[0].motor;
         _myCar._state = CarState.neutral;
-        _speed = _rgbCar.velocity.magnitude * 250;               /// (velocity.magnitude) 4.0 = 1000.0 (JointMotor2D.motorSpeed) 
+        _speed = _rigidbodyCar.velocity.magnitude * 250f;               /// (velocity.magnitude) 4.0 * 250f = 1000.0 (JointMotor2D.motorSpeed) 
+        _carMass = _rigidbodyCar.mass;
     }
 
     void FixedUpdate()
-    {
+    {   
+
+        if (_isFinish)
+        {
+            ParticleSlip();
+            CalibrationCarRotation();
+
+            _wheelJoints[0].motor = _wheelMotor;
+            _wheelJoints[1].motor = _wheelMotor;
+            _wheelJoints[2].motor = _wheelMotor;
+            return;
+        }
         
-        _speed = _rgbCar.velocity.magnitude * 250;
+        _speed = _rigidbodyCar.velocity.magnitude * 250f;
         _angleCar = transform.localEulerAngles.z;
 
         if (_angleCar > 180)
             _angleCar -= 360;
 
-        if (_angleCar < angleMinSensitive && _angleCar > -angleMinSensitive)
+        if (_angleCar < _carAngleMinValue && _angleCar > -_carAngleMinValue)
             _angleCar = 0;
         
         if (Input.GetButton("Fire1"))
         {
-            _mousePosPercentageX = Input.mousePosition.x / Screen.width;
-            _mousePosPercentageX -= 0.5f;
-            _mousePosPercentageX *= 2;
-            RaycastHit2D hitInfo = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition),Camera.main.transform.forward);
+            _mousePosPercentageX = ((Input.mousePosition.x / Screen.width) - 0.5f) * 2f;
+            RaycastHit2D hitInfo = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Camera.main.transform.forward);
             
             if (hitInfo)
             {
                 if (hitInfo.transform.tag == "Player")
                 {
                     _myCar._state = CarState.drag_drop;
-                    _tjDragDrop.enabled = true;
+                    _targetJointDragDrop.enabled = true;
                 }
             }
 
@@ -171,32 +172,31 @@ public class CarController : MonoBehaviour
                     break;
                 default: Moving();
                     break;
-            }
+            }  
         }
         else
         {
             _myCar._state = CarState.neutral;
-            _tjDragDrop.enabled = false;
-            if (_angleCar < 0 || (_angleCar == 0 && _frontWheel.motorSpeed < 0))
+            _targetJointDragDrop.enabled = false;
+
+            if (_angleCar < 0 || (_angleCar == 0 && _wheelMotor.motorSpeed < 0))
             {
-                _frontWheel.motorSpeed = Mathf.Clamp(_frontWheel.motorSpeed - (_gravity * (-_angleCar / 180) * 500 - _deacceleration) * Time.deltaTime, -maxSpeed, 0);
+                _wheelMotor.motorSpeed = Mathf.Clamp(_wheelMotor.motorSpeed - (_gravity * _carMass * (-_angleCar / 180) - _deacceleration) * Time.deltaTime, -MaxSpeed, 0);
             }
-            else if (_angleCar > 0 || (_angleCar == 0 && _frontWheel.motorSpeed > 0))
+            else if (_angleCar > 0 || (_angleCar == 0 && _wheelMotor.motorSpeed > 0))
             {
-                _frontWheel.motorSpeed = Mathf.Clamp(_frontWheel.motorSpeed + (_gravity * (_angleCar / 180) * 500 - _deacceleration) * Time.deltaTime, 0, maxSpeed);
+                _wheelMotor.motorSpeed = Mathf.Clamp(_wheelMotor.motorSpeed + (_gravity * _carMass * (_angleCar / 180) - _deacceleration) * Time.deltaTime, 0, MaxSpeed);
             }
 
         }
-        if (_myCar._state != CarState.drag_drop) 
-            ParticleSlip();
-        else
-            CalibrationCarRotation();
-            
+
+        ParticleSlip();
+        CalibrationCarRotation();
         
         //Debug.Log(gameObject.GetComponent<Rigidbody2D>().velocity.magnitude);
-        _wheelJoints[0].motor = _frontWheel;
-        _wheelJoints[1].motor = _frontWheel;
-        _wheelJoints[2].motor = _frontWheel;
+        _wheelJoints[0].motor = _wheelMotor;
+        _wheelJoints[1].motor = _wheelMotor;
+        _wheelJoints[2].motor = _wheelMotor;
     }
 
 }

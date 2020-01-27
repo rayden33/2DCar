@@ -22,7 +22,7 @@ public class SmoothCamera : MonoBehaviour
 	{
 		_carController = target.GetComponent<CarController>();
 		_rigidbodyTarget = target.gameObject.GetComponent<Rigidbody2D>();
-		_targetMaxSpeed = _carController.maxSpeed;
+		_targetMaxSpeed = _carController.MaxSpeed;
 		_minOrthographicSize = Camera.main.orthographicSize;
 		_offsetOrthographicSize = MaxOrthographicSize - _minOrthographicSize;
 	}

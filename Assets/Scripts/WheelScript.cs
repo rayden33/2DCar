@@ -5,9 +5,29 @@ using UnityEngine;
 
 public class WheelScript : MonoBehaviour
 {
-    public bool onGround = false;
+    [SerializeField] private ParticleSystem SlipParticleSystem;
+    [Range(0,1)]
+    [SerializeField] private float SlipSensitive;
 
+    private bool _onGround = false;
     private CarController _carController;
+
+
+    public void Slipping(float _speed, float _motorSpeed, float _maxSpeed, bool _isDrag)
+    {
+        if(Mathf.Abs(_speed - Mathf.Abs(_motorSpeed)) > (1 - SlipSensitive) * _maxSpeed && !_isDrag)
+        {
+            if (_onGround && Input.GetButton("Fire1"))
+            {
+                if (!SlipParticleSystem.isPlaying) SlipParticleSystem.Play();
+            }
+            else if (SlipParticleSystem.isPlaying) SlipParticleSystem.Stop();
+        }
+        else
+        {
+            if (SlipParticleSystem.isPlaying) SlipParticleSystem.Stop();
+        }
+    }
 
     void Start()
     {
@@ -18,8 +38,7 @@ public class WheelScript : MonoBehaviour
     {
         if (col.gameObject.tag == "Ground")
         {
-            onGround = true;
-            _carController.ChangeOnGroundState();
+            _onGround = true;
         }
     }
 
@@ -27,8 +46,7 @@ public class WheelScript : MonoBehaviour
     {
         if (col.gameObject.tag == "Ground")
         {
-            onGround = false;
-            _carController.ChangeOnGroundState();
+            _onGround = false;
         }
     }
 }

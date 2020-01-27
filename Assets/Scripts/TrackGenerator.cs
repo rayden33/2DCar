@@ -4,29 +4,32 @@ using UnityEngine;
 
 public class TrackGenerator : MonoBehaviour
 {
-    [SerializeField] private Transform CarTransform;
+    [SerializeField] private Transform _carTransform;
     [Header("Tracks")]
-    [SerializeField] private Transform[] TrackPoolList;
-    [SerializeField] private Transform FinishTrack;
-    [SerializeField] private int TrackTranspositionCount = 1;
+    [SerializeField] private Transform[] _trackPoolList;
+    [SerializeField] private Transform _finishTrack;
+    public Transform FinishTrack
+    {
+        get { return _finishTrack; }
+    }
+    [SerializeField] private int _trackTranspositionCount = 1;
 
     private bool _leftTrack = true;
     private bool _rightTrack = false;
+    private bool _isEndOfWay = false;
     private int _currentTrackIndex = 0;
     private int _moveDirection = 0;
     private float _trackLenght = 50f;
-    private float _leftBorderScreenXToWorldX;
-    private float _rightBorderScreenXToWorldX;
-    private float _screenWidthToWorldDistance;
-    private Transform _newTrack;
-
     public float TrackLenght
     {
         get { return _trackLenght; }
     }
+    private Transform _newTrack;
+    private CarController _carController;
+
     private Transform GetTrackFromPool()
     {
-        foreach (var item in TrackPoolList)
+        foreach (var item in _trackPoolList)
         {
             if (!item.gameObject.activeInHierarchy)
                 return item;
@@ -38,15 +41,13 @@ public class TrackGenerator : MonoBehaviour
     {
         _newTrack = GetTrackFromPool();
         _newTrack.position = new Vector2(_newTrackIndex * _trackLenght, 0);
-        if(_newTrack.position.x >= FinishTrack.position.x || _newTrack.position.x <= 0)
+        if(_newTrack.position.x >= _finishTrack.position.x || _newTrack.position.x <= 0)
             return;
         _newTrack.gameObject.SetActive(true);
     }
     private void PoolManager()
     {
-        // Debug.Log(CarTransform.position.x / _trackLenght - _currentTrackIndex);
-        // Debug.Log(_moveDirection);
-        if (CarTransform.position.x / _trackLenght - _currentTrackIndex > 0.5f)
+        if (_carTransform.position.x / _trackLenght - _currentTrackIndex > 0.5f)
         {
             if (_moveDirection > 0)
             {
@@ -77,23 +78,28 @@ public class TrackGenerator : MonoBehaviour
     }
     void Start()
     {
-        // _leftBorderScreenXToWorldX = Camera.main.ScreenToWorldPoint(Vector3.zero).x;
-        // _rightBorderScreenXToWorldX = Camera.main.ScreenToWorldPoint(new Vector2(Screen.width, 0)).x;
-        // _screenWidthToWorldDistance = _rightBorderScreenXToWorldX - _leftBorderScreenXToWorldX;
-
-        FinishTrack.position = new Vector2((TrackTranspositionCount + 1) * _trackLenght, 0);
-        FinishTrack.gameObject.SetActive(true);
+        _carController = _carTransform.gameObject.GetComponent<CarController>();
+        _finishTrack.position = new Vector2((_trackTranspositionCount + 1) * _trackLenght, 0);
+        _finishTrack.gameObject.SetActive(true);
     }
 
     void FixedUpdate()
     {
+        if (_isEndOfWay)
+            return;
+
+        if (_carTransform.position.x > _finishTrack.position.x + _trackLenght * 0.8f)
+        {
+            _isEndOfWay = true;
+            _carController.FinishScene();
+        }
+        else if (_carTransform.position.x > _finishTrack.position.x)
+        {
+            _carController.TakeControl();
+        }
         _moveDirection = _currentTrackIndex;
-        _currentTrackIndex = Mathf.FloorToInt(CarTransform.position.x / _trackLenght);
+        _currentTrackIndex = Mathf.FloorToInt(_carTransform.position.x / _trackLenght);
         _moveDirection -= _currentTrackIndex;
         PoolManager();
-        //Debug.Log(_currentTrackIndex);
-
-        // _leftBorderScreenXToWorldX = Camera.main.ScreenToWorldPoint(Vector3.zero).x;
-        // _rightBorderScreenXToWorldX = _leftBorderScreenXToWorldX + _screenWidthToWorldDistance;
     }
 }
